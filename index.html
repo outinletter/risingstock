@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>장중 모멘텀 리포트 v1.2.4</title>
+    <title>장중 모멘텀 리포트 v1.3.1</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React 및 Babel CDN -->
@@ -18,70 +18,109 @@
         }
         /* 스크롤바 숨기기 */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        @keyframes loading-progress {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+        .animate-loading {
+            animation: loading-progress 1.5s infinite linear;
+        }
     </style>
 </head>
 <body class="bg-[#fcfcfd]">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useMemo, useState, useEffect } = React;
+        const { useMemo, useState, useEffect, useRef } = React;
 
-        const VERSION = "v1.2.4";
+        const VERSION = "v1.3.1";
 
         const enrichReason = (text) => {
             return `${text}\n외국인·기관 동시 순매수와 거래대금 증가가 이어지고 있습니다.\n장 초반 급등 이후에도 매수 체결 강도가 안정적으로 유지되고 있습니다.\n동일 테마 업종 전반으로 수급이 확산되며 단기 모멘텀이 강화되고 있습니다.\n20일 이동평균선 지지 흐름이 유지되어 눌림목 이후 재상승 가능성이 높습니다.`;
         };
 
-        const kospiStocks = [
-            { name: 'SK하이닉스', score: 95, strength: '외국인 수급 집중 + AI 반도체 대장주', reason: enrichReason('HBM 메모리 수요 증가와 AI 서버 투자 확대 수혜가 지속되고 있습니다.') },
-            { name: '삼성전자', score: 92, strength: 'AI 반도체 투자 확대 수혜', reason: enrichReason('반도체 업황 회복 기대와 외국인 매수세가 강화되고 있습니다.') },
-            { name: '한미반도체', score: 91, strength: 'HBM 장비 핵심 공급주', reason: enrichReason('HBM 생산 확대 핵심 장비 공급 기대가 반영되고 있습니다.') },
-            { name: 'HD현대일렉트릭', score: 89, strength: '전력 인프라 성장 수혜', reason: enrichReason('AI 데이터센터 확대에 따른 전력 장비 수요 증가가 기대됩니다.') },
-            { name: 'LS ELECTRIC', score: 88, strength: 'AI 데이터센터 전력 수혜', reason: enrichReason('글로벌 전력 인프라 투자 확대 흐름이 이어지고 있습니다.') },
-            { name: '현대차', score: 87, strength: '전기차 성장 수혜', reason: enrichReason('글로벌 친환경차 판매 증가와 실적 개선 기대가 반영되고 있습니다.') },
-            { name: '기아', score: 86, strength: '수출 성장 지속', reason: enrichReason('SUV 및 고수익 차량 판매 비중 확대 흐름이 이어지고 있습니다.') },
-            { name: '포스코홀딩스', score: 85, strength: '2차전지 소재 성장', reason: enrichReason('리튬 및 2차전지 소재 사업 확대 기대감이 반영되고 있습니다.') },
-            { name: 'LG에너지솔루션', score: 84, strength: '배터리 대장주', reason: enrichReason('글로벌 배터리 공급 확대와 장기 성장 기대가 유지되고 있습니다.') },
-            { name: 'SK텔레콤', score: 83, strength: 'AI 데이터센터 성장', reason: enrichReason('AI 인프라 및 데이터센터 투자 확대 기대가 강화되고 있습니다.') },
+        const initialKospi = [
+            { id: 1, name: 'SK하이닉스', score: 95, strength: '외국인 수급 집중 + AI 반도체 대장주', reason: enrichReason('HBM 메모리 수요 증가와 AI 서버 투자 확대 수혜가 지속되고 있습니다.') },
+            { id: 2, name: '삼성전자', score: 92, strength: 'AI 반도체 투자 확대 수혜', reason: enrichReason('반도체 업황 회복 기대와 외국인 매수세가 강화되고 있습니다.') },
+            { id: 3, name: '한미반도체', score: 91, strength: 'HBM 장비 핵심 공급주', reason: enrichReason('HBM 생산 확대 핵심 장비 공급 기대가 반영되고 있습니다.') },
+            { id: 4, name: 'HD현대일렉트릭', score: 89, strength: '전력 인프라 성장 수혜', reason: enrichReason('AI 데이터센터 확대에 따른 전력 장비 수요 증가가 기대됩니다.') },
+            { id: 5, name: 'LS ELECTRIC', score: 88, strength: 'AI 데이터센터 전력 수혜', reason: enrichReason('글로벌 전력 인프라 투자 확대 흐름이 이어지고 있습니다.') },
+            { id: 6, name: '현대차', score: 87, strength: '전기차 성장 수혜', reason: enrichReason('글로벌 친환경차 판매 증가와 실적 개선 기대가 반영되고 있습니다.') },
+            { id: 7, name: '기아', score: 86, strength: '수출 성장 지속', reason: enrichReason('SUV 및 고수익 차량 판매 비중 확대 흐름이 이어지고 있습니다.') },
+            { id: 8, name: '포스코홀딩스', score: 85, strength: '2차전지 소재 성장', reason: enrichReason('리튬 및 2차전지 소재 사업 확대 기대감이 반영되고 있습니다.') },
+            { id: 9, name: 'LG에너지솔루션', score: 84, strength: '배터리 대장주', reason: enrichReason('글로벌 배터리 공급 확대와 장기 성장 기대가 유지되고 있습니다.') },
+            { id: 10, name: 'SK텔레콤', score: 83, strength: 'AI 데이터센터 성장', reason: enrichReason('AI 인프라 및 데이터센터 투자 확대 기대가 강화되고 있습니다.') },
         ];
 
-        const kosdaqStocks = [
-            { name: '레인보우로보틱스', score: 93, strength: '로봇 대장주', reason: enrichReason('삼성 로봇 사업 확대 기대감이 강하게 반영되고 있습니다.') },
-            { name: '두산로보틱스', score: 92, strength: 'AI 자동화 핵심주', reason: enrichReason('AI 기반 자동화 산업 성장과 로봇 수요 증가 기대가 이어지고 있습니다.') },
-            { name: 'HPSP', score: 91, strength: '첨단 반도체 장비주', reason: enrichReason('첨단 공정 투자 확대 수혜 기대감이 강화되고 있습니다.') },
-            { name: '에코프로비엠', score: 90, strength: '2차전지 반등 기대', reason: enrichReason('전기차 배터리 수요 회복 기대와 거래량 증가가 나타나고 있습니다.') },
-            { name: '알테오젠', score: 89, strength: '바이오 기술 수출 기대', reason: enrichReason('글로벌 기술 수출 확대와 임상 기대감이 반영되고 있습니다.') },
-            { name: '펩트론', score: 88, strength: '비만 치료제 수혜', reason: enrichReason('장기 지속형 플랫폼 기술 경쟁력이 부각되고 있습니다.') },
-            { name: '파크시스템스', score: 87, strength: '반도체 검사 장비 성장', reason: enrichReason('첨단 반도체 검사 수요 확대 흐름이 지속되고 있습니다.') },
-            { name: 'ISC', score: 86, strength: '반도체 소켓 수혜', reason: enrichReason('AI 반도체 테스트 수요 증가 기대감이 강화되고 있습니다.') },
-            { name: '주성엔지니어링', score: 85, strength: '반도체 장비 성장', reason: enrichReason('반도체 설비 투자 확대에 따른 수혜 기대가 이어지고 있습니다.') },
-            { name: '솔브레인', score: 84, strength: '반도체 소재 핵심주', reason: enrichReason('반도체 공정 소재 수요 증가와 실적 개선 기대가 반영되고 있습니다.') },
+        const initialKosdaq = [
+            { id: 11, name: '레인보우로보틱스', score: 93, strength: '로봇 대장주', reason: enrichReason('삼성 로봇 사업 확대 기대감이 강하게 반영되고 있습니다.') },
+            { id: 12, name: '두산로보틱스', score: 92, strength: 'AI 자동화 핵심주', reason: enrichReason('AI 기반 자동화 산업 성장과 로봇 수요 증가 기대가 이어지고 있습니다.') },
+            { id: 13, name: 'HPSP', score: 91, strength: '첨단 반도체 장비주', reason: enrichReason('첨단 공정 투자 확대 수혜 기대감이 강화되고 있습니다.') },
+            { id: 14, name: '에코프로비엠', score: 90, strength: '2차전지 반등 기대', reason: enrichReason('전기차 배터리 수요 회복 기대와 거래량 증가가 나타나고 있습니다.') },
+            { id: 15, name: '알테오젠', score: 89, strength: '바이오 기술 수출 기대', reason: enrichReason('글로벌 기술 수출 확대와 임상 기대감이 반영되고 있습니다.') },
+            { id: 16, name: '펩트론', score: 88, strength: '비만 치료제 수혜', reason: enrichReason('장기 지속형 플랫폼 기술 경쟁력이 부각되고 있습니다.') },
+            { id: 17, name: '파크시스템스', score: 87, strength: '반도체 검사 장비 성장', reason: enrichReason('첨단 반도체 검사 수요 확대 흐름이 지속되고 있습니다.') },
+            { id: 18, name: 'ISC', score: 86, strength: '반도체 소켓 수혜', reason: enrichReason('AI 반도체 테스트 수요 증가 기대감이 강화되고 있습니다.') },
+            { id: 19, name: '주성엔지니어링', score: 85, strength: '반도체 장비 성장', reason: enrichReason('반도체 설비 투자 확대에 따른 수혜 기대가 이어지고 있습니다.') },
+            { id: 20, name: '솔브레인', score: 84, strength: '반도체 소재 핵심주', reason: enrichReason('반도체 공정 소재 수요 증가와 실적 개선 기대가 반영되고 있습니다.') },
         ];
-
-        const previousRanks = {
-            SK하이닉스: 2, 삼성전자: 1, 한미반도체: 4, HD현대일렉트릭: 3, 'LS ELECTRIC': 6, 현대차: 5, 기아: 7, 포스코홀딩스: 8, LG에너지솔루션: 10, SK텔레콤: 9,
-            레인보우로보틱스: 3, 두산로보틱스: 1, HPSP: 2, 에코프로비엠: 5, 알테오젠: 4, 펩트론: 7, 파크시스템스: 6, ISC: 8, 주성엔지니어링: 10, 솔브레인: 9,
-        };
 
         function App() {
             const [marketType, setMarketType] = useState('코스피');
+            const [isUpdating, setIsUpdating] = useState(false);
+            const [kospiData, setKospiData] = useState(initialKospi);
+            const [kosdaqData, setKosdaqData] = useState(initialKosdaq);
+            const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
+            
+            // 이전 순위를 기억하기 위한 Ref
+            const prevRanksRef = useRef({});
 
             const stocks = useMemo(() => {
-                const selectedStocks = marketType === '코스피' ? kospiStocks : kosdaqStocks;
-                return selectedStocks.map((stock, index) => {
+                const currentList = marketType === '코스피' ? kospiData : kosdaqData;
+                
+                // 현재 정렬된 상태의 랭킹 계산
+                const sorted = [...currentList].sort((a, b) => b.score - a.score);
+                
+                return sorted.map((stock, index) => {
                     const currentRank = index + 1;
-                    const previousRank = previousRanks[stock.name] ?? currentRank;
-                    return {
-                        ...stock,
-                        currentRank,
-                        rankChange: previousRank > currentRank ? 'up' : previousRank < currentRank ? 'down' : 'same',
-                    };
+                    const prevRank = prevRanksRef.current[stock.name];
+                    
+                    let rankChange = 'same';
+                    if (prevRank) {
+                        if (prevRank > currentRank) rankChange = 'up';
+                        else if (prevRank < currentRank) rankChange = 'down';
+                    }
+                    
+                    // 현재 랭크를 기록 (다음 갱신 때 사용)
+                    prevRanksRef.current[stock.name] = currentRank;
+                    
+                    return { ...stock, currentRank, rankChange };
                 });
-            }, [marketType]);
+            }, [marketType, kospiData, kosdaqData]);
 
-            const handleMarketChange = (type) => {
-                setMarketType(type);
+            const refreshData = async () => {
+                setIsUpdating(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // 데이터 분석 시뮬레이션 (1.5초)
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // 점진적 점수 변경 로직
+                // 1. 기존 점수에서 ±2점 내외로만 변경
+                // 2. 전체 리스트가 완전히 뒤바뀌지 않음
+                const evolveData = (data) => data.map(item => {
+                    const delta = Math.floor(Math.random() * 5) - 2; // -2, -1, 0, 1, 2 중 하나
+                    let newScore = item.score + delta;
+                    // 점수 범위 제한 (80~99)
+                    newScore = Math.max(80, Math.min(99, newScore));
+                    return { ...item, score: newScore };
+                });
+                
+                setKospiData(evolveData(kospiData));
+                setKosdaqData(evolveData(kosdaqData));
+                setLastUpdate(new Date().toLocaleTimeString());
+                setIsUpdating(false);
             };
 
             const getScoreStyle = (score) => {
@@ -93,109 +132,116 @@
             return (
                 <div className="min-h-screen bg-[#fcfcfd] text-gray-800 tracking-tight pb-10">
                     <div className="max-w-5xl mx-auto min-h-screen bg-white shadow-sm border-x border-gray-100">
-                        {/* 상단 헤더 - 모바일 최적화 (제목과 토글 나란히 배치) */}
+                        {/* 헤더 */}
                         <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/90 backdrop-blur-lg px-4 py-3 sm:px-6 sm:py-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex-1 min-w-0">
                                     <div className="text-[9px] font-bold text-gray-400 flex items-center gap-2 tracking-widest uppercase">
                                         <span>2026. 05. 15 FRI</span>
-                                        <span className="hidden xs:inline bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{VERSION}</span>
+                                        <span className={`bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 ${isUpdating ? 'animate-pulse text-indigo-500' : ''}`}>
+                                            {isUpdating ? 'STABILIZING...' : `LAST UPDATE: ${lastUpdate}`}
+                                        </span>
                                     </div>
                                     <h1 className="text-lg font-black text-gray-900 sm:text-2xl mt-0.5 truncate">장중 모멘텀</h1>
                                 </div>
                                 
                                 <div className="flex items-center gap-3 shrink-0">
-                                    {/* 시장 토글 - 가로 정렬을 위해 너비 최적화 */}
                                     <div className="relative flex w-[120px] xs:w-[140px] items-center rounded-xl bg-gray-50 p-1 border border-gray-100">
                                         <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm transition-all duration-300 ease-out border border-gray-100 ${marketType === '코스피' ? 'translate-x-0' : 'translate-x-[calc(100%+0px)]'}`} />
-                                        <button onClick={() => handleMarketChange('코스피')} className={`relative z-10 flex-1 rounded-lg py-1.5 text-[12px] font-bold transition-colors ${marketType === '코스피' ? 'text-indigo-600' : 'text-gray-400'}`}>코스피</button>
-                                        <button onClick={() => handleMarketChange('코스닥')} className={`relative z-10 flex-1 rounded-lg py-1.5 text-[12px] font-bold transition-colors ${marketType === '코스닥' ? 'text-indigo-600' : 'text-gray-400'}`}>코스닥</button>
+                                        <button onClick={() => setMarketType('코스피')} className={`relative z-10 flex-1 rounded-lg py-1.5 text-[12px] font-bold transition-colors ${marketType === '코스피' ? 'text-indigo-600' : 'text-gray-400'}`}>코스피</button>
+                                        <button onClick={() => setMarketType('코스닥')} className={`relative z-10 flex-1 rounded-lg py-1.5 text-[12px] font-bold transition-colors ${marketType === '코스닥' ? 'text-indigo-600' : 'text-gray-400'}`}>코스닥</button>
                                     </div>
-                                    
-                                    <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hidden md:block rounded-xl bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-500 transition-all hover:bg-indigo-100 border border-indigo-100">데이터 갱신</button>
+                                    <button disabled={isUpdating} onClick={refreshData} className="hidden md:block rounded-xl bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-500 border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50">
+                                        {isUpdating ? '분석 중' : '데이터 갱신'}
+                                    </button>
                                 </div>
                             </div>
                             
-                            {/* 모바일 데이터 업데이트 안내바 - 헤더 높이 절약을 위해 컴팩트하게 변경 */}
                             <div className="mt-2.5 sm:hidden">
-                                <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="w-full rounded-lg bg-indigo-50/50 py-1.5 text-[11px] font-bold text-indigo-400 border border-indigo-100/50 active:bg-indigo-100 transition-colors">
-                                    실시간 분석 업데이트 결과 확인 ↻
+                                <button disabled={isUpdating} onClick={refreshData} className={`w-full rounded-lg py-2 text-[11px] font-bold border transition-colors ${isUpdating ? 'bg-gray-50 text-gray-400 border-gray-200' : 'bg-indigo-50/50 text-indigo-400 border-indigo-100/50'}`}>
+                                    {isUpdating ? '추세 변화 데이터 정밀 분석 중...' : '실시간 분석 업데이트 결과 확인 ↻'}
                                 </button>
                             </div>
                         </header>
 
-                        {/* 데스크톱 테이블 뷰 (md 이상) */}
-                        <div className="hidden md:block overflow-hidden">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-gray-50/50 text-[11px] font-bold text-gray-400 uppercase tracking-[0.1em]">
-                                    <tr>
-                                        <th className="px-6 py-4 border-b border-gray-100">Rank / Name</th>
-                                        <th className="px-6 py-4 text-center border-b border-gray-100">Score</th>
-                                        <th className="px-6 py-4 border-b border-gray-100">Analysis Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {stocks.map((stock) => (
-                                        <tr key={stock.name} className="group border-b border-gray-50 transition-colors hover:bg-gray-50/30">
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-5">
-                                                    <div className="flex min-w-[48px] items-baseline gap-1">
-                                                        <span className="text-xl font-black text-gray-300 group-hover:text-indigo-400 italic transition-colors">{stock.currentRank}</span>
-                                                        {stock.rankChange === 'up' && <span className="text-[10px] font-bold text-rose-400">▲</span>}
-                                                        {stock.rankChange === 'down' && <span className="text-[10px] font-bold text-sky-400">▼</span>}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-[16px] font-bold text-gray-800 leading-none">{stock.name}</div>
-                                                        <div className="mt-1.5 text-xs font-semibold text-indigo-400/80 uppercase tracking-tighter">{stock.strength}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5 text-center">
-                                                <div className={`inline-flex items-center justify-center rounded-lg px-3 py-1 text-xs font-black shadow-sm ${getScoreStyle(stock.score)}`}>{stock.score}</div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="whitespace-pre-line text-[12px] leading-relaxed text-gray-500 font-medium max-w-md">{stock.reason}</div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        {/* 로딩 바 */}
+                        <div className="h-0.5 w-full bg-gray-50 overflow-hidden relative">
+                            {isUpdating && <div className="absolute top-0 left-0 h-full w-1/4 bg-indigo-500 animate-loading"></div>}
                         </div>
 
-                        {/* 모바일 카드 뷰 */}
-                        <div className="md:hidden divide-y divide-gray-50 px-2 pt-2">
-                            {stocks.map((stock) => (
-                                <div key={stock.name} className="bg-white mx-1 my-2 rounded-2xl border border-gray-50 p-4 active:bg-gray-50/50 transition-colors shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg w-10 h-10">
-                                                <span className="text-lg font-black text-indigo-400 italic leading-none">{stock.currentRank}</span>
-                                                <div className="flex gap-0.5 mt-0.5">
-                                                    {stock.rankChange === 'up' && <span className="text-[8px] font-bold text-rose-400">▲</span>}
-                                                    {stock.rankChange === 'down' && <span className="text-[8px] font-bold text-sky-400">▼</span>}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h3 className="text-[18px] font-black text-gray-900 leading-tight tracking-tight">{stock.name}</h3>
-                                                <div className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-black ${getScoreStyle(stock.score)}`}>
-                                                    {stock.score}점
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[11px] font-bold text-indigo-400 leading-tight bg-indigo-50 px-2 py-1 rounded-md">
-                                                {stock.strength.split(' + ')[0]}
-                                            </p>
-                                        </div>
-                                    </div>
+                        <div className={`transition-all duration-700 ${isUpdating ? 'opacity-40 scale-[0.99] grayscale-[0.5]' : 'opacity-100 scale-100 grayscale-0'}`}>
+                            {/* 데스크톱 */}
+                            <div className="hidden md:block">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50/50 text-[11px] font-bold text-gray-400 uppercase tracking-[0.1em]">
+                                        <tr>
+                                            <th className="px-6 py-4 border-b border-gray-100">Rank / Name</th>
+                                            <th className="px-6 py-4 text-center border-b border-gray-100">Score</th>
+                                            <th className="px-6 py-4 border-b border-gray-100">Analysis Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {stocks.map((stock) => (
+                                            <tr key={stock.name} className="group border-b border-gray-50 transition-colors hover:bg-gray-50/30">
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="flex min-w-[48px] items-baseline gap-1">
+                                                            <span className="text-xl font-black text-gray-300 group-hover:text-indigo-400 italic transition-colors">{stock.currentRank}</span>
+                                                            {stock.rankChange === 'up' && <span className="text-[10px] font-bold text-rose-500 animate-bounce">▲</span>}
+                                                            {stock.rankChange === 'down' && <span className="text-[10px] font-bold text-sky-500">▼</span>}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[16px] font-bold text-gray-800 leading-none">{stock.name}</div>
+                                                            <div className="mt-1.5 text-xs font-semibold text-indigo-400/80 uppercase tracking-tighter">{stock.strength}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <div className={`inline-flex items-center justify-center rounded-lg px-3 py-1 text-xs font-black shadow-sm ${getScoreStyle(stock.score)}`}>{stock.score}</div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="whitespace-pre-line text-[12px] leading-relaxed text-gray-500 font-medium max-w-md">{stock.reason}</div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
 
-                                    <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-3.5">
-                                        <div className="whitespace-pre-line break-keep text-[13px] leading-[1.6] text-gray-600 font-medium tracking-tight">
-                                            {stock.reason}
+                            {/* 모바일 */}
+                            <div className="md:hidden divide-y divide-gray-50 px-2 pt-2">
+                                {stocks.map((stock) => (
+                                    <div key={stock.name} className="bg-white mx-1 my-2 rounded-2xl border border-gray-50 p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98]">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg w-10 h-10">
+                                                    <span className="text-lg font-black text-indigo-400 italic leading-none">{stock.currentRank}</span>
+                                                    <div className="flex gap-0.5 mt-0.5">
+                                                        {stock.rankChange === 'up' && <span className="text-[8px] font-bold text-rose-500 animate-bounce">▲</span>}
+                                                        {stock.rankChange === 'down' && <span className="text-[8px] font-bold text-sky-500">▼</span>}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-[18px] font-black text-gray-900 leading-tight tracking-tight">{stock.name}</h3>
+                                                    <div className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-black ${getScoreStyle(stock.score)}`}>
+                                                        {stock.score}점
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[11px] font-bold text-indigo-400 leading-tight bg-indigo-50 px-2 py-1 rounded-md">
+                                                    {stock.strength.split(' + ')[0]}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-3.5">
+                                            <div className="whitespace-pre-line break-keep text-[13px] leading-[1.6] text-gray-600 font-medium tracking-tight">
+                                                {stock.reason}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                         
                         <footer className="p-10 text-center bg-white border-t border-gray-50 mt-4">
