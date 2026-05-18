@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>장중 모멘텀 리포트 v1.7.0</title>
+    <title>장중 모멘텀 리포트 v1.9.0</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React 및 Babel CDN -->
@@ -16,7 +16,7 @@
         body { 
             font-family: 'Inter', 'Noto Sans KR', sans-serif; 
             -webkit-tap-highlight-color: transparent;
-            touch-action: pan-y; /* 수평 스와이프를 명확히 판별하고 기본 가로 스크롤 브라우저 동작 충돌 방지 */
+            touch-action: pan-y; /* 수평 스와이프를 허용하여 브라우저 가로 스크롤과 충돌 방지 */
         }
         /* 스크롤바 숨기기 */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
@@ -36,7 +36,7 @@
     <script type="text/babel">
         const { useMemo, useState, useEffect, useRef } = React;
 
-        const VERSION = "v1.7.0";
+        const VERSION = "v1.9.0";
 
         // 날짜 가독성 포맷 헬퍼 함수
         const getFormattedDate = (dateObj) => {
@@ -48,39 +48,34 @@
             return `${year}. ${month}. ${date} ${day}`;
         };
 
-        // 수치 가독성을 높이기 위한 천단위 콤마 포맷터
-        const formatNumber = (num) => {
-            return num.toString().replace(/\B(?=(\d{3})+(?!\n))/g, ",");
-        };
-
         const rawStocksData = {
             '코스피': [
-                { id: 1, name: 'SK하이닉스', baseScore: 94, volatility: 3, baseRate: 4.8, baseVolume: 1250000, strength: '외국인 수급 집중 + AI 반도체 대장주', coreReason: 'HBM 메모리 수요 증가와 AI 서버 투자 확대 수혜가 지속되고 있습니다.' },
-                { id: 2, name: '삼성전자', baseScore: 91, volatility: 2, baseRate: 1.5, baseVolume: 8400000, strength: 'AI 반도체 투자 확대 수혜', coreReason: '반도체 업황 회복 기대와 외국인 매수세가 강화되고 있습니다.' },
-                { id: 3, name: '한미반도체', baseScore: 90, volatility: 4, baseRate: 7.2, baseVolume: 920000, strength: 'HBM 장비 핵심 공급주', coreReason: 'HBM 생산 확대 핵심 장비 공급 기대가 반영되고 있습니다.' },
-                { id: 4, name: 'HD현대일렉트릭', baseScore: 89, volatility: 5, baseRate: 11.4, baseVolume: 430000, strength: '전력 인프라 성장 수혜', coreReason: 'AI 데이터센터 확대에 따른 전력 장비 수요 증가가 기대됩니다.' },
-                { id: 5, name: 'LS ELECTRIC', baseScore: 88, volatility: 4, baseRate: 8.5, baseVolume: 650000, strength: 'AI 데이터센터 전력 수혜', coreReason: '글로벌 전력 인프라 투자 확대 흐름이 이어지고 있습니다.' },
-                { id: 6, name: '현대차', baseScore: 87, volatility: 2, baseRate: 2.1, baseVolume: 350000, strength: '전기차 성장 수혜', coreReason: '글로벌 친환경차 판매 증가와 실적 개선 기대가 반영되고 있습니다.' },
-                { id: 7, name: '기아', baseScore: 86, volatility: 2, baseRate: 1.8, baseVolume: 410000, strength: '수출 성장 지속', coreReason: 'SUV 및 고수익 차량 판매 비중 확대 흐름이 이어지고 있습니다.' },
-                { id: 8, name: '포스코홀딩스', baseScore: 84, volatility: 3, baseRate: -0.8, baseVolume: 280000, strength: '2차전지 소재 성장', coreReason: '리튬 및 2차전지 소재 사업 확대 기대감이 반영되고 있습니다.' },
-                { id: 9, name: 'LG에너지솔루션', baseScore: 84, volatility: 3, baseRate: -1.2, baseVolume: 190000, strength: '배터리 대장주', coreReason: '글로벌 배터리 공급 확대와 장기 성장 기대가 유지되고 있습니다.' },
-                { id: 10, name: 'SK텔레콤', baseScore: 83, volatility: 1, baseRate: 0.4, baseVolume: 210000, strength: 'AI 데이터센터 성장', coreReason: 'AI 인프라 및 데이터센터 투자 확대 기대가 강화되고 있습니다.' },
+                { id: 1, name: 'SK하이닉스', baseScore: 94, volatility: 3, baseRate: 4.8, baseVolRate: 280, strength: '외국인 수급 집중 + AI 반도체 대장주', coreReason: 'HBM 메모리 수요 증가와 AI 서버 투자 확대 수혜가 지속되고 있습니다.' },
+                { id: 2, name: '삼성전자', baseScore: 91, volatility: 2, baseRate: 1.5, baseVolRate: 150, strength: 'AI 반도체 투자 확대 수혜', coreReason: '반도체 업황 회복 기대와 외국인 매수세가 강화되고 있습니다.' },
+                { id: 3, name: '한미반도체', baseScore: 90, volatility: 4, baseRate: 7.2, baseVolRate: 340, strength: 'HBM 장비 핵심 공급주', coreReason: 'HBM 생산 확대 핵심 장비 공급 기대가 반영되고 있습니다.' },
+                { id: 4, name: 'HD현대일렉트릭', baseScore: 89, volatility: 5, baseRate: 11.4, baseVolRate: 490, strength: '전력 인프라 성장 수혜', coreReason: 'AI 데이터센터 확대에 따른 전력 장비 수요 증가가 기대됩니다.' },
+                { id: 5, name: 'LS ELECTRIC', baseScore: 88, volatility: 4, baseRate: 8.5, baseVolRate: 310, strength: 'AI 데이터센터 전력 수혜', coreReason: '글로벌 전력 인프라 투자 확대 흐름이 이어지고 있습니다.' },
+                { id: 6, name: '현대차', baseScore: 87, volatility: 2, baseRate: 2.1, baseVolRate: 120, strength: '전기차 성장 수혜', coreReason: '글로벌 친환경차 판매 증가와 실적 개선 기대가 반영되고 있습니다.' },
+                { id: 7, name: '기아', baseScore: 86, volatility: 2, baseRate: 1.8, baseVolRate: 110, strength: '수출 성장 지속', coreReason: 'SUV 및 고수익 차량 판매 비중 확대 흐름이 이어지고 있습니다.' },
+                { id: 8, name: '포스코홀딩스', baseScore: 84, volatility: 3, baseRate: -0.8, baseVolRate: 95, strength: '2차전지 소재 성장', coreReason: '리튬 및 2차전지 소재 사업 확대 기대감이 반영되고 있습니다.' },
+                { id: 9, name: 'LG에너지솔루션', baseScore: 84, volatility: 3, baseRate: -1.2, baseVolRate: 85, strength: '배터리 대장주', coreReason: '글로벌 배터리 공급 확대와 장기 성장 기대가 유지되고 있습니다.' },
+                { id: 10, name: 'SK텔레콤', baseScore: 83, volatility: 1, baseRate: 0.4, baseVolRate: 75, strength: 'AI 데이터센터 성장', coreReason: 'AI 인프라 및 데이터센터 투자 확대 기대가 강화되고 있습니다.' },
             ],
             '코스닥': [
-                { id: 11, name: '레인보우로보틱스', baseScore: 92, volatility: 4, baseRate: 9.5, baseVolume: 740000, strength: '로봇 대장주', coreReason: '삼성 로봇 사업 확대 기대감이 강하게 반영되고 있습니다.' },
-                { id: 12, name: '두산로보틱스', baseScore: 91, volatility: 5, baseRate: 12.1, baseVolume: 1150000, strength: 'AI 자동화 핵심주', coreReason: 'AI 기반 자동화 산업 성장과 로봇 수요 증가 기대가 이어지고 있습니다.' },
-                { id: 13, name: 'HPSP', baseScore: 90, volatility: 3, baseRate: 4.2, baseVolume: 820000, strength: '첨단 반도체 장비주', coreReason: '첨단 공정 투자 확대 수혜 기대감이 강화되고 있습니다.' },
-                { id: 14, name: '에코프로비엠', baseScore: 89, volatility: 6, baseRate: -2.5, baseVolume: 1450000, strength: '2차전지 반등 기대', coreReason: '전기차 배터리 수요 회복 기대와 거래량 증가가 나타나고 있습니다.' },
-                { id: 15, name: '알테오젠', baseScore: 89, volatility: 5, baseRate: 15.4, baseVolume: 2100000, strength: '바이오 기술 수출 기대', coreReason: '글로벌 기술 수출 확대와 임상 기대감이 반영되고 있습니다.' },
-                { id: 16, name: '펩트론', baseScore: 87, volatility: 5, baseRate: 8.8, baseVolume: 950000, strength: '비만 치료제 수혜', coreReason: '장기 지속형 플랫폼 기술 경쟁력이 부각되고 있습니다.' },
-                { id: 17, name: '파크시스템스', baseScore: 86, volatility: 3, baseRate: 3.1, baseVolume: 140000, strength: '반도체 검사 장비 성장', coreReason: '첨단 반도체 검사 수요 확대 흐름이 지속되고 있습니다.' },
-                { id: 18, name: 'ISC', baseScore: 86, volatility: 4, baseRate: 5.6, baseVolume: 320000, strength: '반도체 소켓 수혜', coreReason: 'AI 반도체 테스트 수요 증가 기대감이 강화되고 있습니다.' },
-                { id: 19, name: '주성엔지니어링', baseScore: 85, volatility: 4, baseRate: 2.7, baseVolume: 480000, strength: '반도체 장비 성장', coreReason: '반도체 설비 투자 확대에 따른 수혜 기대가 이어지고 있습니다.' },
-                { id: 20, name: '솔브레인', baseScore: 84, volatility: 2, baseRate: 1.1, baseVolume: 110000, strength: '반도체 소재 핵심주', coreReason: '반도체 공정 소재 수요 증가와 실적 개선 기대가 반영되고 있습니다.' },
+                { id: 11, name: '레인보우로보틱스', baseScore: 92, volatility: 4, baseRate: 9.5, baseVolRate: 320, strength: '로봇 대장주', coreReason: '삼성 로봇 사업 확대 기대감이 강하게 반영되고 있습니다.' },
+                { id: 12, name: '두산로보틱스', baseScore: 91, volatility: 5, baseRate: 12.1, baseVolRate: 410, strength: 'AI 자동화 핵심주', coreReason: 'AI 기반 자동화 산업 성장과 로봇 수요 증가 기대가 이어지고 있습니다.' },
+                { id: 13, name: 'HPSP', baseScore: 90, volatility: 3, baseRate: 4.2, baseVolRate: 190, strength: '첨단 반도체 장비주', coreReason: '첨단 공정 투자 확대 수혜 기대감이 강화되고 있습니다.' },
+                { id: 14, name: '에코프로비엠', baseScore: 89, volatility: 6, baseRate: -2.5, baseVolRate: 130, strength: '2차전지 반등 기대', coreReason: '전기차 배터리 수요 회복 기대와 거래량 증가가 나타나고 있습니다.' },
+                { id: 15, name: '알테오젠', baseScore: 89, volatility: 5, baseRate: 15.4, baseVolRate: 580, strength: '바이오 기술 수출 기대', coreReason: '글로벌 기술 수출 확대와 임상 기대감이 반영되고 있습니다.' },
+                { id: 16, name: '펩트론', baseScore: 87, volatility: 5, baseRate: 8.8, baseVolRate: 290, strength: '비만 치료제 수혜', coreReason: '장기 지속형 플랫폼 기술 경쟁력이 부각되고 있습니다.' },
+                { id: 17, name: '파크시스템스', baseScore: 86, volatility: 3, baseRate: 3.1, baseVolRate: 140, strength: '반도체 검사 장비 성장', coreReason: '첨단 반도체 검사 수요 확대 흐름이 지속되고 있습니다.' },
+                { id: 18, name: 'ISC', baseScore: 86, volatility: 4, baseRate: 5.6, baseVolRate: 210, strength: '반도체 소켓 수혜', coreReason: 'AI 반도체 테스트 수요 증가 기대감이 강화되고 있습니다.' },
+                { id: 19, name: '주성엔지니어링', baseScore: 85, volatility: 4, baseRate: 2.7, baseVolRate: 160, strength: '반도체 장비 성장', coreReason: '반도체 설비 투자 확대에 따른 수혜 기대가 이어지고 있습니다.' },
+                { id: 20, name: '솔브레인', baseScore: 84, volatility: 2, baseRate: 1.1, baseVolRate: 105, strength: '반도체 소재 핵심주', coreReason: '반도체 공정 소재 수요 증가와 실적 개선 기대가 반영되고 있습니다.' },
             ]
         };
 
-        // 실시간 시장 요약 및 당일 테마/지수 생성용
+        // 실시간 시장 환경 및 주도 섹터 모멘텀 데이터
         const generateMarketStatus = () => {
             const now = new Date();
             const seed = now.getSeconds() + now.getMilliseconds();
@@ -111,7 +106,7 @@
             };
         };
 
-        // 종목별 수급 등락 실시간 리프레시 알고리즘 엔진 (등락률 및 거래량 가중치 추가 연산)
+        // 종목별 모멘텀 분석 (등락률 및 거래량 가중치를 '전일대비 거래증감률'로 환산 연산)
         const analyzeRealtimeMomentum = (stocks) => {
             const now = new Date();
             const seed = now.getSeconds() + now.getMilliseconds();
@@ -120,28 +115,28 @@
                 const rawVariation = Math.sin(seed + stock.id) * stock.volatility;
                 const delta = Math.round(rawVariation * 0.6);
                 
-                // 1. 점수 실시간 보정
+                // 점수 연산
                 const score = Math.max(80, Math.min(99, stock.baseScore + delta));
 
-                // 2. 등락률 실시간 보정 (점수 변동 delta와 높은 연관을 가집니다)
+                // 등락률 연산
                 const rateChange = parseFloat((stock.baseRate + (delta * 0.8)).toFixed(2));
 
-                // 3. 누적 거래량 실시간 보정 (갱신 호출 시점마다 현실적으로 조금씩 누적 증가)
-                const addedVolume = Math.floor(Math.abs(Math.cos(seed + stock.id)) * (stock.baseVolume * 0.12));
-                const volume = stock.baseVolume + addedVolume;
+                // 전일대비 거래증감률 연산 (전일 거래량 대비 장중 누적 증감률 보정)
+                const volRateVariation = Math.floor(Math.abs(Math.sin(seed * 0.8 + stock.id)) * (stock.baseVolRate * 0.25));
+                const volRate = Math.max(10, stock.baseVolRate + (delta * 15) + volRateVariation);
 
-                const volumeChange = (stock.volatility + delta) > 2 ? "폭발적으로 급증" : "점진적으로 증가";
+                const volumeChange = volRate > 250 ? "폭발적으로 급증" : "점진적으로 증가";
                 const strengthDesc = (delta >= 1) ? "장중 매수세가 가파르게 유입되며 상방 압력을 높이고 있습니다." 
                                                  : "차익 실현 매물을 소화하면서 안정적인 추세를 유지하는 과정에 있습니다.";
 
-                const reason = `${stock.coreReason} 현재 시점 실시간 수급을 추적한 결과, 외국인·기관의 동시 순매수 기조 하에 거래대금이 ${volumeChange}하고 있습니다. 장 초반의 급등 이후에도 체결 강도가 강한 지지선을 구축하여 흔들림 없이 탄탄하게 유지되고 있으며, 동일 테마 및 유관 업종 전반으로 활발한 순환매 수급이 지속적으로 전이되면서 단기 모멘텀이 극대화되고 있습니다. 더불어 주요 이동평균선상의 견고한 지지 흐름이 연쇄적으로 유지되고 있어 눌림목 구간을 성공적으로 탈피한 후 상방 재상승 국면에 접어들 가능성이 압도적으로 높습니다. ${strengthDesc}`;
+                const reason = `${stock.coreReason} 현재 시점 실시간 수급을 추적한 결과, 외국인·기관의 동시 순매수 기조 하에 전일대비 거래량 증감률이 약 +${volRate}% 이상 ${volumeChange}하고 있습니다. 장 초반의 급등 이후에도 체결 강도가 강한 지지선을 구축하여 흔들림 없이 탄탄하게 유지되고 있으며, 동일 테마 및 유관 업종 전반으로 활발한 순환매 수급이 지속적으로 전이되면서 단기 모멘텀이 극대화되고 있습니다. 더불어 주요 이동평균선상의 견고한 지지 흐름이 연쇄적으로 유지되고 있어 눌림목 구간을 성공적으로 탈피한 후 상방 재상승 국면에 접어들 가능성이 압도적으로 높습니다. ${strengthDesc}`;
 
                 return {
                     id: stock.id,
                     name: stock.name,
                     score,
                     rate: rateChange,
-                    volume,
+                    volRate,
                     strength: stock.strength,
                     reason
                 };
@@ -160,7 +155,7 @@
             
             const prevRanksRef = useRef({});
             
-            // 모바일 스와이프 이벤트를 위한 좌표 Ref
+            // 모바일 스와이프 제스처 이벤트용 Ref
             const touchStartX = useRef(0);
             const touchEndX = useRef(0);
 
@@ -208,7 +203,7 @@
                 return 'bg-emerald-100 text-emerald-600 border border-emerald-200';
             };
 
-            // 스와이프 제스처 처리 이벤트 함수들
+            // 스와이프 제스처 핸들링
             const handleTouchStart = (e) => {
                 touchStartX.current = e.changedTouches[0].clientX;
             };
@@ -220,17 +215,15 @@
 
             const handleSwipeGesture = () => {
                 const distanceX = touchEndX.current - touchStartX.current;
-                const threshold = 60; // 스와이프 판정을 내릴 최소 터치 수평 이동 거리(px)
+                const threshold = 60; // 최소 반응 이동 거리(px)
                 
                 if (Math.abs(distanceX) > threshold) {
                     if (distanceX > 0) {
-                        // 오른쪽으로 쓸어 넘기기 -> 코스피 이동
                         if (marketType !== '코스피') {
                             setMarketType('코스피');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                     } else {
-                        // 왼쪽으로 쓸어 넘기기 -> 코스닥 이동
                         if (marketType !== '코스닥') {
                             setMarketType('코스닥');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -334,12 +327,12 @@
                             </div>
                             <div className="mt-3.5 text-center block md:hidden">
                                 <span className="inline-flex items-center gap-1.5 text-[10px] bg-indigo-50/30 text-indigo-400/80 px-2.5 py-1 rounded-full border border-indigo-100/30">
-                                    Swipe 💬 좌우 제스처로 시장을 신속하게 전환하세요
+                                    Swipe 💬 좌우 쓸어넘기기로 간편하게 시장 전환
                                 </span>
                             </div>
                         </div>
 
-                        {/* 메인 리스트 컨테이너 (스와이프를 감지하여 이벤트 연결) */}
+                        {/* 리스트 컨테이너 (스와이프 제스처 감지 영역) */}
                         <div 
                             onTouchStart={handleTouchStart} 
                             onTouchEnd={handleTouchEnd}
@@ -350,8 +343,8 @@
                                 <table className="w-full text-left border-collapse table-fixed">
                                     <thead className="bg-gray-50/50 text-[11px] font-bold text-gray-400 uppercase tracking-[0.1em]">
                                         <tr>
-                                            <th className="w-[200px] px-6 py-4 border-b border-gray-100">Rank / Name</th>
-                                            <th className="w-[110px] px-4 py-4 text-center border-b border-gray-100">Price / Volume</th>
+                                            <th className="w-[190px] px-6 py-4 border-b border-gray-100">Rank / Name</th>
+                                            <th className="w-[125px] px-4 py-4 text-center border-b border-gray-100">Price / Prev Vol Rate</th>
                                             <th className="w-[90px] px-4 py-4 text-center border-b border-gray-100">Score</th>
                                             <th className="px-6 py-4 border-b border-gray-100">AI Momentum Analysis (Continuous)</th>
                                         </tr>
@@ -372,13 +365,13 @@
                                                         </div>
                                                     </div>
                                                 </td>
-                                                {/* 데스크톱 등락률 및 거래량 */}
+                                                {/* 데스크톱 등락률 및 전일대비 거래증감률 */}
                                                 <td className="px-4 py-5 text-center">
                                                     <span className={`text-[13px] font-black block ${stock.rate >= 0 ? 'text-rose-500' : 'text-sky-500'}`}>
                                                         {stock.rate >= 0 ? '+' : ''}{stock.rate}%
                                                     </span>
-                                                    <span className="text-[10px] font-semibold text-gray-400 block mt-0.5">
-                                                        {formatNumber(stock.volume)} 주
+                                                    <span className="inline-block mt-1 text-[9px] font-bold text-indigo-500 bg-indigo-50/70 border border-indigo-100/30 px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                                                        전일대비 +{stock.volRate}%
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-5 text-center">
@@ -395,7 +388,7 @@
                                 </table>
                             </div>
 
-                            {/* 모바일 - 실시간 등락률과 거래량이 추가된 가성비 구조 */}
+                            {/* 모바일 - 실시간 등락률과 전일대비 거래증감률이 최적화된 카드 구조 */}
                             <div className="md:hidden divide-y divide-gray-50 px-2 pt-2">
                                 {stocks.map((stock) => (
                                     <div key={stock.id} className="bg-white mx-1 my-2 rounded-2xl border border-gray-50 p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98]">
@@ -405,7 +398,7 @@
                                                     <span className="text-lg font-black text-indigo-400 italic leading-none">{stock.currentRank}</span>
                                                     <div className="flex gap-0.5 mt-0.5">
                                                         {stock.rankChange === 'up' && <span className="text-[8px] font-bold text-rose-500 animate-bounce">▲</span>}
-                                                        {stock.rankChange === 'down' && <span className="text-[8px] font-bold text-sky-500">▼</span>}
+                                                        {stock.rankChange === 'down' && <span className="text-[8px] font-bold text-sky-400">▼</span>}
                                                     </div>
                                                 </div>
                                                 <div className="truncate">
@@ -422,18 +415,18 @@
                                                 </div>
                                             </div>
                                             
-                                            {/* 모바일 실시간 수급 현황 및 거래량 */}
+                                            {/* 모바일 실시간 수급 현황 및 전일대비 거래증감률 */}
                                             <div className="text-right shrink-0 ml-2">
                                                 <span className="text-[11px] font-extrabold text-indigo-500 leading-tight bg-indigo-50 px-2 py-1 rounded-md block">
                                                     {stock.strength.split(' + ')[0]}
                                                 </span>
-                                                <span className="text-[9px] font-semibold text-gray-400 block mt-1 tracking-wider uppercase">
-                                                    VOL: {formatNumber(stock.volume)}주
+                                                <span className="inline-block text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100/50 px-1.5 py-0.5 rounded-md mt-1.5 uppercase tracking-wider">
+                                                    전일대비 +{stock.volRate}%
                                                 </span>
                                             </div>
                                         </div>
                                         
-                                        {/* 모바일용 시각 최적화 텍스트 영역 */}
+                                        {/* 모바일 설명 텍스트 영역 */}
                                         <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-3.5">
                                             <div className="text-[13px] text-gray-600 font-medium leading-[1.6] tracking-tight break-keep whitespace-normal">
                                                 {stock.reason}
