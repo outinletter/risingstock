@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>장중 모멘텀 실시간 대시보드 (공공데이터포털 연동)</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes slide {
@@ -30,19 +31,16 @@
 <body class="bg-slate-50/50 text-slate-800 antialiased">
   <div id="root"></div>
 
+  <!-- React 18 및 ReactDOM 실무용 CDN -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- 브라우저에서 JSX를 컴파일하기 위한 Babel CDN -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <script type="text/babel">
     const { useMemo, useState, useEffect, useRef, memo } = React;
 
-    const VERSION = "v5.2.0 (Public Data API Engine)";
-
-    // ==========================================
-    // [중요] 발급받으신 공공데이터포털 인증키(Decoding Key)를 아래에 입력하세요.
-    // ==========================================
-    const PUBLIC_DATA_API_KEY = "8T/V79pamqQ+wr4pQdRlcKF6772dzCiwbyc90iX1L1aRSliNgh0ceaYF74KbTjq9aKkoNZqJgmO8ftDWbx6nng==";
+    const VERSION = "v5.2.5 (Robust Fallback Engine)";
 
     // 로컬 스토리지 캐시 키 정의
     const CACHE_KEYS = {
@@ -51,6 +49,12 @@
       KOSDAQ_DATA: "momentum_kosdaq_data_cache",
       UPDATE_DATE: "momentum_update_date_cache"
     };
+
+    // ==========================================
+    // [중요] 발급받으신 공공데이터포털 인증키(Decoding Key)를 아래에 입력하세요.
+    // 비어있거나 기본 텍스트 상태이면 자동으로 '로컬 시뮬레이션 모드'로 안전 진입합니다.
+    // ==========================================
+    const PUBLIC_DATA_API_KEY = "8T/V79pamqQ+wr4pQdRlcKF6772dzCiwbyc90iX1L1aRSliNgh0ceaYF74KbTjq9aKkoNZqJgmO8ftDWbx6nng==";
 
     // 날짜 포맷 함수
     const getFormattedDate = (d) => {
@@ -100,11 +104,11 @@
 
     // = "금융위원회 주식시세정보" 오픈 API 단일 종목 호출 함수 =
     const fetchStockFromPublicPortal = async (stockName) => {
+      // [오류 해결] API Key가 유효하지 않을 경우, 에러를 던지지 않고 차분히 null을 반환하여 병렬 수집이 멈추는 현상을 방지합니다.
       if (!PUBLIC_DATA_API_KEY || PUBLIC_DATA_API_KEY.includes("YOUR_DECODING")) {
-        throw new Error("KEY_MISSING");
+        return null;
       }
 
-      // 브라우저 단일 실행 시 발생하는 CORS 제한 우회를 위한 공개 프록시 라인업 적용
       const proxy = "https://cors-anywhere.herokuapp.com/";
       const endpoint = "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo";
       
@@ -115,9 +119,8 @@
         itmsNm: stockName
       });
 
-      // 타임아웃 처리를 위한 AbortController 설정
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
         const response = await fetch(`${proxy}${endpoint}?${params.toString()}`, {
@@ -136,13 +139,13 @@
             price: parseInt(item.clpr || "0", 10),     // clpr: 종가 (현재가)
             rate: parseFloat(item.fltRt || "0"),       // fltRt: 등락률
             volume: parseInt(item.trqu || "0", 10),    // trqu: 누적 거래량
-            prevVolume: parseInt(item.trqu || "1", 10) - parseInt(item.cmtg || "0", 10) // 전일거래량 대피 연산
+            prevVolume: parseInt(item.trqu || "1", 10) - parseInt(item.cmtg || "0", 10)
           };
         }
         return null;
       } catch (err) {
         clearTimeout(timeoutId);
-        console.warn(`${stockName} 데이터 파싱 에러:`, err);
+        console.warn(`${stockName} 데이터 파싱 우회 또는 에러:`, err);
         return null;
       }
     };
@@ -376,10 +379,28 @@
       };
 
       // ==========================================
-      // [오픈 API 핵심엔진] 20개 전 종목 금융위 API 병렬 호출 동기화 함수
+      // [오류 해결] 20개 전 종목 공공 API 안전 호출 및 시뮬레이션 처리 함수
       // ==========================================
       const refreshData = async () => {
         setIsUpdating(true);
+        const now = new Date();
+
+        // [오류 해결] API 키가 비어있거나 수정되지 않은 기본 템플릿일 때, 불필요한 예외를 던지지 않고
+        // 0ms 만에 즉시 로컬 가상 마켓 모드로 안전 진입합니다. (Unhandled Rejection 원천 차단)
+        if (!PUBLIC_DATA_API_KEY || PUBLIC_DATA_API_KEY.includes("YOUR_DECODING")) {
+          setConnectionMode("mock");
+          const simIndex = generateMockIndexState();
+          setMarketStatus(simIndex);
+          const kLive = generateMockLiveState(initialStocksData['코스피']);
+          setKospiData(mergeStockData(initialStocksData['코스피'], kLive));
+          const qLive = generateMockLiveState(initialStocksData['코스닥']);
+          setKosdaqData(mergeStockData(initialStocksData['코스닥'], qLive));
+          
+          setIsUpdating(false);
+          showNotification('코드 내 PUBLIC_DATA_API_KEY가 등록되지 않아 시뮬레이션 모드로 실행됩니다.');
+          return;
+        }
+
         setStatusMsg('금융위원회 공공데이터 실시간 수집 중...');
 
         const allKospiNames = initialStocksData['코스피'].map(s => s.name);
@@ -413,7 +434,7 @@
           showNotification('공공데이터포털 금융위 주식시세 연동 완료!');
 
         } catch (e) {
-          console.error(e);
+          console.warn("API 갱신 우회 또는 한도 도달 - 오프라인 모드로 안전 복구합니다.", e);
           setConnectionMode("mock");
           
           // API 키 누적 한도 초과 또는 미인증 시 안전하게 대피용 데이터 활성화
@@ -423,11 +444,7 @@
           setKosdaqData(mergeStockData(initialStocksData['코스닥'], qLive));
           setMarketStatus(generateMockIndexState());
 
-          if (e.message === "KEY_MISSING") {
-            showNotification('코드 상단의 PUBLIC_DATA_API_KEY를 입력해 주세요.');
-          } else {
-            showNotification('CORS 우회 트래픽 과부하로 모의 변동 시뮬레이션 전환');
-          }
+          showNotification('CORS 우회 트래픽 과부하로 모의 변동 시뮬레이션 전환');
         }
 
         setStatusMsg('');
@@ -503,6 +520,11 @@
                 </div>
               </div>
             </header>
+
+            {/* 로딩 바 */}
+            <div className="h-[3px] w-full bg-slate-50 overflow-hidden relative">
+              {isUpdating && <div className={`absolute top-0 left-0 h-full w-1/3 animate-pulse ${tc.dot} animate-slide`} style={{backgroundImage: 'linear-gradient(to right, transparent, currentColor, transparent)'}} />}
+            </div>
 
             <div className="mx-4 mt-3 sm:mx-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl text-[11px] border bg-slate-50 text-slate-600 border-slate-200/50">
