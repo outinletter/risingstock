@@ -35,7 +35,15 @@
   <script type="text/babel">
     const { useMemo, useState, useEffect, useRef } = React;
 
-    const VERSION = "v4.6.0 (Real-time Price Engine)";
+    const VERSION = "v5.0.0 (Direct Realtime Connection)";
+
+    // 로컬 스토리지 캐시 키 정의
+    const CACHE_KEYS = {
+      MARKET_STATUS: "momentum_market_status_cache",
+      KOSPI_DATA: "momentum_kospi_data_cache",
+      KOSDAQ_DATA: "momentum_kosdaq_data_cache",
+      UPDATE_DATE: "momentum_update_date_cache"
+    };
 
     // 날짜 포맷 함수
     const getFormattedDate = (d) => {
@@ -71,7 +79,7 @@
       ]
     };
 
-    // 디폴트 2026년 시장 상황 기초값
+    // 디폴트 시장 상황 기초값
     const defaultMarketStatus = {
       kospi:  { index: '2,682.50', change: '+0.58%' },
       kosdaq: { index: '874.10', change: '-0.24%' },
@@ -83,26 +91,23 @@
       ]
     };
 
-    // ==========================================
-    // Gemini API 구조 설정 및 스키마 선언
-    // ==========================================
-
+    // 스키마 선언
     const indexSchema = {
       type: "OBJECT",
       properties: {
         kospi: {
           type: "OBJECT",
           properties: {
-            index: { type: "STRING", description: "코스피 현재 지수값 (예: 2654.21)" },
-            change: { type: "STRING", description: "코스피 전일대비 등락률 (예: +1.20% 또는 -0.45%)" }
+            index: { type: "STRING" },
+            change: { type: "STRING" }
           },
           required: ["index", "change"]
         },
         kosdaq: {
           type: "OBJECT",
           properties: {
-            index: { type: "STRING", description: "코스닥 현재 지수값 (예: 845.80)" },
-            change: { type: "STRING", description: "코스닥 전일대비 등락률 (예: +0.85% 또는 -1.15%)" }
+            index: { type: "STRING" },
+            change: { type: "STRING" }
           },
           required: ["index", "change"]
         },
@@ -111,9 +116,9 @@
           items: {
             type: "OBJECT",
             properties: {
-              name: { type: "STRING", description: "섹터명 (예: AI 반도체)" },
-              strength: { type: "STRING", description: "모멘텀 점수 (예: 88.5)" },
-              flow: { type: "STRING", description: "간결한 수급 동향 설명" }
+              name: { type: "STRING" },
+              strength: { type: "STRING" },
+              flow: { type: "STRING" }
             },
             required: ["name", "strength", "flow"]
           }
@@ -127,11 +132,11 @@
       items: {
         type: "OBJECT",
         properties: {
-          name: { type: "STRING", description: "종목명" },
-          price: { type: "NUMBER", description: "현재 실시간 주가 (원 단위 숫자)" },
-          rate: { type: "NUMBER", description: "오늘 등락률 (숫자만, 예: 2.35 또는 -1.40)" },
-          volume: { type: "NUMBER", description: "오늘 거래량" },
-          prevVolume: { type: "NUMBER", description: "전일 거래량" }
+          name: { type: "STRING" },
+          price: { type: "NUMBER" },
+          rate: { type: "NUMBER" },
+          volume: { type: "NUMBER" },
+          prevVolume: { type: "NUMBER" }
         },
         required: ["name", "price", "rate", "volume", "prevVolume"]
       }
@@ -139,14 +144,18 @@
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+    // ==========================================
+    // [개발자 테스트 즉시 대응] 
+    // 환경 주입 키를 최우선으로 사용하여 강제 장벽 없이 API 호출을 수행합니다.
+    // ==========================================
     const callGeminiAPI = async (prompt, systemInstruction, schema) => {
-      const apiKey = "";
+      const apiKey = ""; // 실행 환경에서 런타임에 직접 제공합니다.
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
       const payload = {
         contents: [{ parts: [{ text: prompt }] }],
         systemInstruction: { parts: [{ text: systemInstruction }] },
-        tools: [{ google_search: {} }],
+        tools: [{ "google_search": {} }], // 구글 검색 연동 활성화
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: schema
@@ -168,28 +177,28 @@
           if (text) {
             return JSON.parse(text);
           }
-          throw new Error("No payload found in candidates");
+          throw new Error("No payload");
         } catch (err) {
-          if (attempt === 4) {
-            throw new Error("네트워크 장애가 있습니다.");
-          }
+          if (attempt === 4) throw err;
           await delay(Math.pow(2, attempt) * 1000);
         }
       }
     };
 
     const fetchIndexViaGemini = async () => {
-      const today = new Date().toLocaleDateString('ko-KR');
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
       const systemPrompt = "당신은 한국 주식 시장의 실시간 지수 정보를 분석하는 전문 연구원입니다. 주관적 설명 없이 지정된 스키마 JSON 규격을 엄수해야 합니다.";
-      const prompt = `오늘(${today}, 2026년 5월 28일) KOSPI와 KOSDAQ의 가장 최신 실시간 지수값, 등락률, 그리고 4대 주도 섹터를 수집하세요.`;
+      const prompt = `오늘(${dateStr}) KOSPI와 KOSDAQ의 가장 최신 실시간 지수값, 등락률, 그리고 4대 주도 섹터를 구글 검색을 기반으로 수집하세요.`;
       return await callGeminiAPI(prompt, systemPrompt, indexSchema);
     };
 
     const fetchStocksViaGemini = async (stocks, market) => {
       const names = stocks.map(s => s.name).join(', ');
-      const today = new Date().toLocaleDateString('ko-KR');
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
       const systemPrompt = "당신은 특정 상장 종목의 거래량 및 실시간 주가를 추적하는 금융 파서입니다. 스키마 규격을 가공하여 리턴하십시오.";
-      const prompt = `오늘(${today}, 2026년 5월 28일) 한국 ${market} 시장의 다음 종목들의 현재 실시간 주가(원 단위), 당일 등락률(%), 거래량, 그리고 직전일 거래량을 수집하십시오:\n${names}`;
+      const prompt = `오늘(${dateStr}) 한국 ${market} 시장의 다음 종목들의 현재 실시간 주가(원 단위 숫자), 당일 등락률(%), 거래량, 그리고 직전일 거래량을 구글 검색을 기반으로 수집하십시오:\n${names}`;
       return await callGeminiAPI(prompt, systemPrompt, stocksSchema);
     };
 
@@ -267,14 +276,10 @@
     function App() {
       const [marketType, setMarketType] = useState('코스피');
       const [isUpdating, setIsUpdating] = useState(false);
-      const [updateDate, setUpdateDate] = useState(() => getFormattedDate(new Date()));
-      const [marketStatus, setMarketStatus] = useState(defaultMarketStatus);
-      const [kospiData, setKospiData] = useState([]);
-      const [kosdaqData, setKosdaqData] = useState([]);
       const [statusMsg, setStatusMsg] = useState('');
-      
       const [selectedStock, setSelectedStock] = useState(null);
       const [notification, setNotification] = useState(null);
+      const [connectionMode, setConnectionMode] = useState("preloaded");
 
       const prevRanksRef = useRef({});
       const touchStartX = useRef(0);
@@ -282,6 +287,50 @@
       const kospiScrollPos = useRef(0);
       const kosdaqScrollPos = useRef(0);
       const isSwitchingRef = useRef(false);
+
+      // 날짜 대조 및 캐시 검증 시스템
+      const [updateDate, setUpdateDate] = useState(() => {
+        const todayStr = getFormattedDate(new Date());
+        const cachedDate = localStorage.getItem(CACHE_KEYS.UPDATE_DATE);
+
+        if (cachedDate !== todayStr) {
+          localStorage.removeItem(CACHE_KEYS.MARKET_STATUS);
+          localStorage.removeItem(CACHE_KEYS.KOSPI_DATA);
+          localStorage.removeItem(CACHE_KEYS.KOSDAQ_DATA);
+          localStorage.setItem(CACHE_KEYS.UPDATE_DATE, todayStr);
+          return todayStr;
+        }
+        return cachedDate || todayStr;
+      });
+
+      const [marketStatus, setMarketStatus] = useState(() => {
+        const cached = localStorage.getItem(CACHE_KEYS.MARKET_STATUS);
+        if (!cached) {
+          localStorage.setItem(CACHE_KEYS.MARKET_STATUS, JSON.stringify(defaultMarketStatus));
+          return defaultMarketStatus;
+        }
+        return JSON.parse(cached);
+      });
+
+      const [kospiData, setKospiData] = useState(() => {
+        const cached = localStorage.getItem(CACHE_KEYS.KOSPI_DATA);
+        const defaultMerged = mergeStockData(initialStocksData['코스피'], []);
+        if (!cached) {
+          localStorage.setItem(CACHE_KEYS.KOSPI_DATA, JSON.stringify(defaultMerged));
+          return defaultMerged;
+        }
+        return JSON.parse(cached);
+      });
+
+      const [kosdaqData, setKosdaqData] = useState(() => {
+        const cached = localStorage.getItem(CACHE_KEYS.KOSDAQ_DATA);
+        const defaultMerged = mergeStockData(initialStocksData['코스닥'], []);
+        if (!cached) {
+          localStorage.setItem(CACHE_KEYS.KOSDAQ_DATA, JSON.stringify(defaultMerged));
+          return defaultMerged;
+        }
+        return JSON.parse(cached);
+      });
 
       useEffect(() => { 
         refreshData(); 
@@ -307,51 +356,56 @@
         }, 0);
       };
 
+      // ==========================================
+      // [직접 갱신] 실시간 데이터 요청 파이프라인
+      // ==========================================
       const refreshData = async () => {
         setIsUpdating(true);
-        setKospiData([]); 
-        setKosdaqData([]);
         const now = new Date();
 
         try {
-          setStatusMsg('지수 정보를 로딩 중입니다...');
+          setStatusMsg('지수 정보를 갱신 중...');
           let indexData = defaultMarketStatus;
-          try {
-            const fetchedIndex = await fetchIndexViaGemini();
-            if (fetchedIndex && fetchedIndex.kospi) {
-              indexData = fetchedIndex;
-            }
-          } catch (e) {}
+          
+          const fetchedIndex = await fetchIndexViaGemini();
+          if (fetchedIndex && fetchedIndex.kospi) {
+            indexData = fetchedIndex;
+          }
           setMarketStatus(indexData);
 
-          setStatusMsg('코스피 시세 정보를 로딩 중입니다...');
-          let kospiLive = [];
-          try {
-            kospiLive = await fetchStocksViaGemini(initialStocksData['코스피'], '코스피');
-          } catch (e) {}
+          setStatusMsg('코스피 실시간 가격을 파싱 중...');
+          const kospiLive = await fetchStocksViaGemini(initialStocksData['코스피'], '코스피');
           const mergedKospi = mergeStockData(initialStocksData['코스피'], kospiLive);
           setKospiData(mergedKospi);
 
-          setStatusMsg('코스닥 시세 정보를 로딩 중입니다...');
-          let kosdaqLive = [];
-          try {
-            kosdaqLive = await fetchStocksViaGemini(initialStocksData['코스닥'], '코스닥');
-          } catch (e) {}
+          setStatusMsg('코스닥 실시간 가격을 파싱 중...');
+          const kosdaqLive = await fetchStocksViaGemini(initialStocksData['코스닥'], '코스닥');
           const mergedKosdaq = mergeStockData(initialStocksData['코스닥'], kosdaqLive);
           setKosdaqData(mergedKosdaq);
 
-          showNotification('실시간 데이터 갱신이 완료되었습니다.');
+          // 캐시 동기화
+          const formattedNowDate = getFormattedDate(now);
+          localStorage.setItem(CACHE_KEYS.MARKET_STATUS, JSON.stringify(indexData));
+          localStorage.setItem(CACHE_KEYS.KOSPI_DATA, JSON.stringify(mergedKospi));
+          localStorage.setItem(CACHE_KEYS.KOSDAQ_DATA, JSON.stringify(mergedKosdaq));
+          localStorage.setItem(CACHE_KEYS.UPDATE_DATE, formattedNowDate);
+          
+          setUpdateDate(formattedNowDate);
+          setConnectionMode("realtime");
+          showNotification('실시간 데이터를 완벽하게 갱신했습니다.');
 
         } catch (e) {
+          // 로컬 환경이나 오프라인 등 예외 상태 시 변동성 생성기로 부드러운 상태 제공
+          setConnectionMode("mock");
           const simIndex = generateMockIndexState();
           setMarketStatus(simIndex);
           const kLive = generateMockLiveState(initialStocksData['코스피']);
           setKospiData(mergeStockData(initialStocksData['코스피'], kLive));
           const qLive = generateMockLiveState(initialStocksData['코스닥']);
           setKosdaqData(mergeStockData(initialStocksData['코스닥'], qLive));
+          showNotification('실시간 정보를 수집하는 중 장애가 있어 시뮬레이션 데이터를 제공합니다.');
         }
 
-        setUpdateDate(getFormattedDate(now));
         setStatusMsg('');
         setIsUpdating(false);
         kospiScrollPos.current = 0;
@@ -440,7 +494,7 @@
                   </div>
 
                   {/* 갱신 버튼 */}
-                  <button disabled={isUpdating} onClick={refreshData}
+                  <button disabled={isUpdating} onClick={() => refreshData()}
                     className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-[11px] sm:text-xs font-black border active:scale-95 transition-all disabled:opacity-50 shadow-sm ${tc.btn}`}>
                     {isUpdating ? (
                       <>
@@ -461,10 +515,16 @@
               {isUpdating && <div className={`absolute top-0 left-0 h-full w-1/3 animate-pulse ${tc.dot} animate-slide`} style={{backgroundImage: 'linear-gradient(to right, transparent, currentColor, transparent)'}} />}
             </div>
 
-            {/* 안내 문구 */}
+            {/* 안내 문구 및 실시간 연동 배너 */}
             <div className="mx-4 mt-3 sm:mx-6">
-              <div className="flex items-center p-3 rounded-2xl text-[11px] md:text-xs border bg-slate-50 text-slate-600 border-slate-200/50">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl text-[11px] md:text-xs border bg-slate-50 text-slate-600 border-slate-200/50">
                 <span className="font-medium">💡 종목을 클릭하시면 당일 주가 흐름 분석 리포트 팝업이 활성화됩니다.</span>
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <span className={`w-2 h-2 rounded-full ${connectionMode === 'realtime' ? 'bg-emerald-500 animate-ping' : connectionMode === 'mock' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
+                  <span className="text-[10px] font-bold">
+                    {connectionMode === "realtime" ? "실시간 연동 완료" : connectionMode === "mock" ? "오프라인 변동 반영" : "기본 캐시 데이터 표시"}
+                  </span>
+                </div>
               </div>
             </div>
 
